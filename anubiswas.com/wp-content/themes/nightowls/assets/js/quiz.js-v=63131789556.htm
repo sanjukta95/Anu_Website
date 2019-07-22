@@ -1,0 +1,145 @@
+$(document).ready(function(){
+  $(".checkAnswer").click(function(){
+    var currentQuestion = $(this).parents(".single-slide").attr("id");
+    updateProgress($(this).data('progress'));
+    checkAnswer(currentQuestion);
+  });
+
+  $('.reset-quiz').on('click', function(){
+    resetQuiz($(this).data('reset'));
+  });
+
+  var question = $('.slick-current').attr('id');
+  getAnswers($('.quiz-slider').data('quiz'), question);
+
+  $('.refreshResults').on('click', function(){
+    var lastSlide = $(".single-slide").length;
+    getResults($('.quiz-slider').data('quiz'));
+    $('.quiz-slider').slick('slickGoTo', lastSlide);
+
+  });
+});
+
+function initProgress(slide){
+  var total = $('#q_total').html();
+  var prog_bar = (slide / total) * 100;
+  $('#show_progress').width(prog_bar + '%');
+}
+function checkAnswer(currentQuestion){
+  var answered = 0;
+  var selectedAnswer;
+  var correct;
+
+  $('#' + currentQuestion).find("input:radio:checked").each(function() {
+    answered++;
+    selectedAnswer = $(this).attr("id");
+    correct = $(this).data("correct");
+  });
+  if(answered > 0){
+    if(correct){
+      correctclass = "is-correct";
+      correcttext = "Correct!";
+    } else {
+      correctclass = "is-incorrect";
+      correcttext = "Incorrect!";
+    }
+    $('#' + currentQuestion).find(".correct").addClass("active " + correctclass);
+    $('#' + currentQuestion).find(".correct h3").html(correcttext);
+    $('html, body').animate({
+        scrollTop: $(".correct").offset().top
+    }, 500,function(){
+      if(correct){
+        $('.correct .correct-message').effect( "highlight", {color:"#d9f5d0"}, 500 );
+      } else {
+        $('.correct .correct-message').effect( "shake", {times:3, distance: 5}, 500 );
+      }
+
+    });
+
+    saveAnswer(selectedAnswer, currentQuestion, correct);
+    lockAnswer(currentQuestion, selectedAnswer);
+  }
+}
+function lockAnswer(currentQuestion, selectedAnswer){
+  $('#' + currentQuestion + ' input[type="radio"]').click(function(e) {
+    e.preventDefault();
+    return false;
+  });
+}
+function saveAnswer(answer, currentQuestion, correct){
+  var quiz = $('.quiz-slider').data('quiz');
+  var retrieveQuiz = localStorage.getItem(quiz);
+  getAnswers = $.parseJSON(retrieveQuiz);
+
+  var answerObject = {
+    answer: answer,
+    correct: correct
+  };
+
+  if(getAnswers == null){
+    localStorage.setItem([quiz], JSON.stringify({[currentQuestion]: answerObject }));
+  }else{
+    $.extend(getAnswers, {[currentQuestion]: answerObject});
+    localStorage.setItem([quiz], JSON.stringify(getAnswers));
+  }
+}
+function getAnswers(quiz, slide){
+  var retrieveQuiz = localStorage.getItem(quiz);
+  getAnswers = $.parseJSON(retrieveQuiz);
+  var autoFill = [];
+
+  if(getAnswers !== null){
+    for(var key in getAnswers){
+      var value = getAnswers[key];
+      autoFill.push(value.answer);
+    }
+  }
+  if(autoFill.length){
+    var lastSlide = 0;
+    $.each(autoFill, function(key, value){
+      $(`#${value}`).prop("checked", true);
+      var lockPanel = $(`#${value}`).closest('.single-slide').attr("id");
+      lockAnswer(lockPanel, $(`#${value}`));
+      lastSlide++;
+    });
+  }
+
+  if(lastSlide > 0){
+    var autoProgress = $('#slide' + lastSlide).find('.checkAnswer').data('progress');
+    $('.quiz-slider').slick('slickGoTo', lastSlide);
+    updateProgress(autoProgress);
+    initProgress(lastSlide + 1);
+
+  }else{
+    initProgress(1);
+  }
+}
+function updateProgress(progress){
+  var total = $('#q_total').html();
+  var prog_bar = ((progress + 1) / total) * 100;
+  var prog = 1;
+
+  if((progress + 1) > total){
+    prog = total;
+    getResults($('.quiz-slider').data('quiz'));
+  }else{
+    prog = (progress + 1);
+  }
+  $('#quiz_progress').html(prog);
+  $('#show_progress').width(prog_bar + '%');
+
+  
+
+
+}
+function getResults(quiz){
+  var getResults = localStorage.getItem(quiz);
+  var score = 0;
+  results = $.parseJSON(getResults);
+  $.each(results, (i, val) => {score += val.correct;});
+  $('#your_result').html(score);
+}
+function resetQuiz(quiz){
+  localStorage.removeItem(quiz);
+  location.reload();
+}
